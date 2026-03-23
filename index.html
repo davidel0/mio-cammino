@@ -33,6 +33,8 @@
             border: none;
             border-left: 5px solid var(--accent);
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: slideUp 0.8s ease backwards;
+            padding: 30px 15px; /* 30px sopra/sotto, solo 15px ai lati per i telefoni */
         }
 
         .tappa-card:hover {
@@ -44,10 +46,6 @@
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
-        }
-
-        .tappa-card {
-            animation: slideUp 0.8s ease backwards;
         }
 
         /* Badge dinamico per la tappa del giorno */
@@ -145,7 +143,11 @@
             line-height: 1.7; 
         }
         
-        .chart-container { height: 280px; margin: 30px 0; }
+        .chart-container {
+            height: 280px; 
+            width: 100%; /* Forza l'intera larghezza */
+            margin: 20px 0; 
+        }
         
         .progress-bar { background: #e0e0e0; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 8px; }
         .progress-fill { background: var(--path); height: 100%; width: 0%; transition: width 1.2s ease-out; }
@@ -1343,7 +1345,14 @@
                     new Chart(document.getElementById(`chart-${i}`).getContext('2d'), {
                         type: 'line', plugins: [ChartDataLabels],
                         data: { datasets: [{ data: t.punti, borderColor: '#4a6741', backgroundColor: 'rgba(74, 103, 65, 0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: 'red', datalabels: { align: 'top', anchor: 'end', color: '#3e2723', font: { weight: 'bold' }, formatter: v => v.label } }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'linear', min: 0, max: t.km, offset: true, ticks: { font: { size: 9 }, stepSize: 1, callback: v => Number.isInteger(v) ? v : null }, grid: { color: c => c.tick.value % 5 === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)' } }, y: { beginAtZero: true, max: Math.ceil(maxAlt * 1.2), ticks: { font: { size: 10 }, afterBuildTicks: a => a.ticks = [{value: 0}, {value: maxAlt}] } } }, layout: { padding: { left: 40, right: 40, top: 30, bottom: 10 } } }
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, layout: {
+        padding: {
+            left: 0,   // Azzeriamo i margini interni
+            right: 0, 
+            top: 10, 
+            bottom: 0
+        }
+    }, scales: { x: { type: 'linear', min: 0, max: t.km, offset: true, ticks: { font: { size: 9 }, stepSize: 1, callback: v => Number.isInteger(v) ? v : null }, grid: { color: c => c.tick.value % 5 === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)' } }, y: { beginAtZero: true, max: Math.ceil(maxAlt * 1.2), ticks: { font: { size: 10 }, afterBuildTicks: a => a.ticks = [{value: 0}, {value: maxAlt}] } } }, layout: { padding: { left: 40, right: 40, top: 30, bottom: 10 } } }
                     });
                 }
 
