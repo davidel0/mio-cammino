@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Il Diario di Dave - Cammino di Santiago</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        :root {
+            --paper: #fdfaf6;
+            --ink: #2b1d1a;
+            --accent: #a67c52;
+            --path: #3a5a40; /* Verde bosco più profondo */
+            --today-gold: #f4a261; /* Oro sabbia più caldo */
+        }
+
+        /* Effetto scorrimento fluido */
+        html { scroll-behavior: smooth; }
+
+        /* Font accattivanti */
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap');
+
+        header h1 { 
+            font-family: 'Dancing Script', cursive; 
+            font-size: 4em; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Card con effetto "foglio di carta" */
+        .tappa-card {
+            background: #ffffff;
+            border: none;
+            border-left: 5px solid var(--accent);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .tappa-card:hover {
+            transform: translateY(-5);
+            box-shadow: 20px 20px 40px rgba(0,0,0,0.1);
+        }
+
+        /* Animazione per l'ingresso delle tappe */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tappa-card {
+            animation: slideUp 0.8s ease backwards;
+        }
+
+        /* Badge dinamico per la tappa del giorno */
+        .messaggio-oggi-strong {
+            background: linear-gradient(135deg, var(--path), #588157);
+            border-radius: 8px;
+            border-left: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .messaggio-oggi-strong::before {
+            content: "LIVE";
+            position: absolute;
+            top: 5px; right: 10px;
+            font-size: 0.6em;
+            background: #e76f51;
+            padding: 2px 6px;
+            border-radius: 4px;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0.3; } }
+
+        body { 
+            background-color: var(--paper);
+            background-image: 
+                radial-gradient(at 50% 50%, rgba(255, 255, 255, 0.4) 0%, rgba(0, 0, 0, 0.1) 100%),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' viewBox='0 0 4 4'%3E%3Cpath fill='%239C92AC' fill-opacity='0.15' d='M1 3h1v1H1V3zm2-2h1v1H2V1z'%3E%3C/path%3E%3C/svg%3E");
+            background-attachment: fixed;
+            font-family: 'Georgia', serif; 
+            color: var(--ink); 
+            margin: 0; padding: 0; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        header { 
+            width: 100%; text-align: center; padding: 50px 0;
+            background: #e1d3bc; 
+            border-bottom: 4px double var(--ink);
+            margin-bottom: 40px;
+        }
+
+        header h1 { font-size: 3em; margin: 0; }
+        header h2 { font-size: 1.8em; font-weight: normal; margin-top: 10px; color: var(--accent); }
+        header p { font-size: 20px; }
+
+        .progresso-container {
+            width: 90%; max-width: 800px; 
+            background: rgba(255, 255, 255, 0.9);
+            padding: 25px; border-radius: 12px; margin-bottom: 40px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .content { width: 95%; max-width: 850px; }
+
+        .tappa-card { 
+            background: rgba(255, 255, 255, 0.95);
+            margin-bottom: 80px; padding: 40px; 
+            border-radius: 4px; border: 1px solid #dcd3c1;
+            position: relative; 
+            box-shadow: 5px 5px 25px rgba(0,0,0,0.06);
+        }
+
+        .tappa-card.oggi { 
+            border: 3px solid var(--today-gold); 
+            background: #fffdf0; 
+        }
+
+        /* IL NASTRO "OGGI SONO QUI" */
+        .messaggio-oggi-strong {
+            background: var(--path);
+            color: white;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-left: 6px solid var(--today-gold);
+            box-shadow: 2px 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .tappa-data { 
+            font-size: 1.5em; font-weight: bold; color: var(--accent); 
+            text-transform: uppercase; display: block; margin-bottom: 10px; 
+            font-style: italic;
+        }
+        
+        h2.tappa-titolo { margin: 0; font-size: 2.2em; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        
+        /* RIPRISTINO STATS COME DA TUA FOTO */
+        .tappa-stats { 
+            background: #fdfdfd; padding: 15px; border: 1px dashed var(--accent); 
+            border-radius: 4px; font-size: 1.1em; margin: 20px 0; text-align: center;
+            line-height: 1.7; 
+        }
+        
+        .chart-container { height: 280px; margin: 30px 0; }
+        
+        .progress-bar { background: #e0e0e0; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { background: var(--path); height: 100%; width: 0%; transition: width 1.2s ease-out; }
+        
+        p.desc-text { line-height: 2; font-size: 1.2em; margin-top: 30px; }
+        
+        .intro-box {
+            width: 90%;
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 5px solid var(--path); /* Un richiamo al verde del cammino */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }
+
+        .intro-box p {
+            font-size: 1.15em;
+            line-height: 1.7;
+            margin: 0;
+            color: var(--ink);
+        }
+
+        .intro-highlight {
+            color: var(--path);
+            font-weight: bold;
+        }
+        /* Stile per le Targhette Divisorie */
+        .divisore-cammino {
+            width: 100%;
+            text-align: center;
+            margin: 60px 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .divisore-cammino::before, .divisore-cammino::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--accent);
+            margin: 0 20px;
+            opacity: 0.5;
+        }
+
+        .targhetta {
+            background: var(--ink);
+            color: var(--paper);
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-family: 'Georgia', serif;
+            font-size: 1.1em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border: 2px solid var(--accent);
+        }
+
+        .targhetta.fine {
+            background: #795548; /* Un marrone diverso per la fine */
+        }
+
+        .sosta-santiago-box {
+            background: #fff;
+            border: 2px solid var(--path);
+            padding: 30px;
+            margin: 40px auto;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .sosta-santiago-box h3 {
+            margin-top: 0;
+            color: var(--path);
+            font-size: 1.8em;
+        }
+
+        .sosta-santiago-box p {
+            font-size: 1.2em;
+            line-height: 1.8;
+            margin-bottom: 0;
+            font-style: italic;
+        }
+
+        .meteo-oggi-box {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+
+        .meteo-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .meteo-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .meteo-label {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        /* Cornice per le mappe */
+        .mappa-cornice {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            margin: 20px auto 50px auto;
+            padding: 15px;
+            background: #fff;
+            border: 8px solid var(--ink);
+            border-radius: 4px;
+            box-shadow: 10px 10px 0px rgba(62, 39, 35, 0.1);
+            text-align: center;
+        }
+
+        .mappa-cornice img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Pin Rosso Pulsante */
+        .pin-mappa {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #ff4d4d;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            display: none; /* Appare solo nel giorno corrente */
+            animation: pulsante 2s infinite;
+        }
+
+        @keyframes pulsante {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.8; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        /* Semplice cornice per le foto */
+        .foto-mappa {
+            background: white;
+            padding: 15px 15px 40px 15px; /* Spazio sotto per la scritta "a mano" */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); 
+            margin: 40px auto;
+        }
+
+        .foto-mappa img {
+            width: 100%; /* La foto occupa tutto lo spazio della cornice */
+            height: auto; /* Mantiene le proporzioni */
+            display: block;
+        }
+
+        .foto-mappa p {
+            font-family: 'Dancing Script', cursive;
+            font-size: 1.5em;
+            color: #444;
+        }
+
+        footer {
+            width: 100%;
+            margin-top: 100px;
+            padding: 40px 0;
+            background-color: rgba(62, 39, 35, 0.05); /* Un marrone leggerissimo */
+            border-top: 1px solid var(--accent);
+            text-align: center;
+            font-size: 0.9em;
+            color: var(--ink);
+            line-height: 1.6;
+        }
+
+        .credits-box {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .guide-title {
+            font-style: italic;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+<button onclick="scrollToToday()" id="btnToday" style="position: fixed; bottom: 20px; right: 20px; z-index: 100; background: var(--path); color: white; border: none; padding: 15px 20px; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); font-family: inherit; font-weight: bold; display: none;">
+    📍 Dove si trova Dave?
+</button>
+
+<header>
+    <p>Il Diario di Dave</p>
+    <h1>👣 Cammino di Santiago</h1>
+    <h2>Irun ➔ Santiago ➔ Finisterre</h2>
+    <p>30 Marzo - 5 Maggio 2026</p>
+</header>
+
+<div class="intro-box">
+    <p>
+        Ciao belli! Benvenuti nel mio Cammino. 👣<br><br>
+        Ho creato questo spazio per accorciare le distanze. Mentre i miei passi mi porteranno lontano, 
+        tra i sentieri del Nord della Spagna e le scogliere della Galizia, questo sito serve a tenermi vicino a voi: 
+        la mia famiglia, i miei amici e tutte le persone che lascio, momentaneamente, in Italia. <br><br>
+        In queste pagine troverete tutto il mio percorso scandito per tappe e aggiornato giorno dopo giorno. 
+        È il mio modo per portarvi con me, condividendo fatiche, panorami e traguardi. <br><br>
+        <span class="intro-highlight">Per seguirmi passo dopo passo, la tappa del giorno sarà evidenziata automaticamente 
+        in giallo con il nastro "OGGI SONO QUI". </span> Potrete anche capire all'incirca dove mi trovo guardando che ore sono 
+        e confrontandolo con il percorso su una cartina, così da capire grosso modo dove mi trovo in quel preciso istante.
+        <br><br> A presto, vi penserò molto!
+    </p>
+</div>
+
+<div class="progresso-container">
+    <div style="margin-bottom: 15px;">
+        <strong>Cammino del Nord</strong>, da Irun a Santiago (33 tappe - 814,1 km) 
+        <br><small>Partenza da Irun: 30 Marzo <br> Arrivo a Santiago: 1 Maggio</small>
+        <span id="perc1" style="font-weight: bold; float: right;">0%</span>
+    </div>
+    <div class="progress-bar"><div id="bar1" class="progress-fill"></div></div>
+    
+    <br><br>
+    
+    <div style="margin-bottom: 15px;">
+        <strong>Cammino da Santiago a Finisterre</strong> (3 tappe - 90 km)
+        <br><small>Partenza da Santiago: 3 Maggio <br> Arrivo all'Oceano: 5 Maggio</small>
+        <span id="perc2" style="font-weight: bold; float: right;">0%</span>
+    </div>
+    <div class="progress-bar"><div id="bar2" class="progress-fill"></div></div>
+</div>
+
+<div class="content" id="lista-tappe"></div>
+
+<script>
+    const camminoData = [
+        {
+            data: "30 Marzo 2026",
+            titolo: "1° Tappa: Irun ➔ San Sebastián",
+            km: 23,
+            stats: "📏 Lunghezza: 22,2 km <br>⛰️ Dislivello: salita 790m - discesa 790m <br>👣 Fondo: 54% sterrato 46% asfalto",
+            desc: "Descrizione della tappa:<br><strong>È la mia prima tappa del Cammino e sarà abbastanza dura per la lunghezza, ma soprattutto per i dislivelli. La tappa sarà comunque bellissima: salirò al santuario della Madonna di Guadalupe e quindi percorrerò la cresta del monte Jaizkibel scendendo alla ría del Cammino, a Pasaia/Pasajes San Juan, splendido borgo di mare. Di qui affronterò ancora una salita al monte Ulía e sarò a San Sebastián. Il primo contatto sarà strepitoso: la città mi apparirà all'improvviso e la potrò ammirare dall'alto di un balcone naturale. Cercherò di assaporarne lo spirito, facendo magari gli ultimi passi sulle tre belle spiagge cittadine.<strong>",
+            punti: [{x: 0, y: 0, label: "Irun"}, {x: 1.2, y: 0, label: ""}, {x: 4, y: 200, label: "Santuario de Guadalupe"}, {x: 5, y: 380, label: ""}, {x: 5.3, y: 360, label: ""}, {x: 7, y: 440, label: ""}, {x: 7.5, y: 530, label: ""}, {x: 13, y: 200, label: ""}, {x: 14.5, y: 0, label: "Pasaia"}, {x: 15.5, y: 0, label: ""}, {x: 16, y: 140, label: ""}, {x: 16.5, y: 100, label: ""}, {x: 18, y: 100, label: ""}, {x: 19, y: 210, label: "Monte Ulìa"}, {x: 20.5, y: 100, label: ""}, {x: 21, y: 0, label: ""}, {x: 22.2, y: 0, label: "San Sebastiàn"}]
+        },
+        {
+            data: "31 Marzo 2026",
+            titolo: "2° Tappa: San Sebastián ➔ Zarautz",
+            km: 23.0,
+            stats: "📏 Lunghezza: 22 km <br>⛰️ Dislivello: salita 504m - discesa 504m <br>👣 Fondo: 22% sterrato 78% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Oggi lascerò la bella San Sebastián e navigherò per le verdi colline basche: sullo sfondo avrò l’oceano. Camminerò in grandi spazi aperti, in una zona ventilata: se il tempo sarà bello vedrò un lungo tratto di costa gipuzkoana. Seguirò la ría di Orio quasi fino al mare, supererò una collina densa di vigneti e scenderò a Zarautz accompagnato da uno splendido panorama.</strong>",
+            punti: [{x: 0, y: 0, label: "San Sebastiàn"}, {x: 2.3, y: 0, label: ""}, {x: 3, y: 100, label: ""}, {x: 5, y: 180, label: ""}, {x: 9.5, y: 210, label: "Sorgente"}, {x: 12.3, y: 310, label: ""}, {x: 14.5, y: 70, label: ""}, {x: 15, y: 100, label: ""}, {x: 16.2, y: 0, label: "Orio"}, {x: 17., y: 0, label: ""}, {x: 18, y: 0, label: ""}, {x: 20, y: 100, label: ""}, {x: 22, y: 0, label: "Zarautz"},]
+        },
+        {
+            data: "1 Aprile 2026",
+            titolo: "3° Tappa: Zarautz ➔ Deba",
+            km: 23.0,
+            stats: "📏 Lunghezza: 22,3 km <br>⛰️ Dislivello: salita 632m - discesa 632m <br>👣 Fondo: 31% sterrato 69% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Affronterò una tappa impegnativa, con continui saliscendi. Raggiungerò Getaria con una bella passeggiata lungomare. Poi mi addentrerò sulle colline dell’interno, tra campi e boschetti, prima della panoramica discesa fino a Zumaia. Mi terrò lontano dalla costa, attraversando fitti boschi e prati; risalirò a Itziar scendendo infine in picchiata sino a Deba.</strong>",
+            punti: [{x: 0, y: 0, label: "Zarautz"}, {x: 4.5, y: 30, label: "Getaria"}, {x: 8, y: 120, label: ""}, {x: 8.9, y: 0, label: ""}, {x: 9.5, y: 0, label: "Zumaia"}, {x: 10, y: 0, label: ""}, {x: 11.5, y: 130, label: ""}, {x: 12, y: 110, label: ""}, {x: 14, y: 200, label: ""}, {x: 15, y: 120, label: ""}, {x: 15.5, y: 180, label: ""}, {x: 16, y: 150, label: ""}, {x: 16.5, y: 180, label: ""}, {x: 17.5, y: 160, label: ""}, {x: 18.5, y: 280, label: "Itziar"}, {x: 20.5, y: 200, label: ""}, {x: 21, y: 210, label: ""}, {x: 22.3, y: 0, label: "Deba"},]
+        },
+        {
+            data: "2 Aprile 2026",
+            titolo: "4° Tappa: Deba ➔ Markina",
+            km: 25.0,
+            stats: "📏 Lunghezza: 24,3 km <br>⛰️ Dislivello: salita 845m - discesa 774m <br>👣 Fondo: 63% sterrato 37% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Abbandonerò ancora il mare, questa volta per qualche giorno: lo ritroverò solo dopo Bilbao. Camminerò in paesaggi montani con forti saliscendi raggiungendo quasi i 500 m di altitudine. Sarà una tappa immersa nel verde: nella prima parte troverò gli ultimi ampi panorami sul mare, nella seconda le boscose valli interne.</strong>",
+            punti: [{x: 0, y: 0, label: "Deba"}, {x: 0.8, y: 0, label: ""}, {x: 2.5, y: 200, label: ""}, {x: 3.2, y: 200, label: ""}, {x: 4.2, y: 250, label: "Kalbario"}, {x: 4.6, y: 240, label: ""}, {x: 6, y: 340, label: ""}, {x: 6.5, y: 200, label: ""}, {x: 7, y: 200, label: ""}, {x: 7.5, y: 220, label: "Olatz"}, {x: 11, y: 490, label: ""}, {x: 12, y: 490, label: ""}, {x: 13.5, y: 380, label: ""}, {x: 14, y: 400, label: ""}, {x: 18, y: 340, label: "Fonte"}, {x: 18.6, y: 400, label: ""}, {x: 20, y: 400, label: ""}, {x: 22.8, y: 80, label: ""}, {x: 24.3, y: 80, label: "Markina"},  ]
+        },
+        {
+            data: "3 Aprile 2026",
+            titolo: "5° Tappa: Markina ➔ Gernika",
+            km: 26.0,
+            stats: "📏 Lunghezza: 25,3 km <br>⛰️ Dislivello: salita 675m - discesa 745m <br>👣 Fondo: 68% sterrato 32% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Mi inoltrerò sempre più in umide valli interne sino a uscire alla collegiata di Zenarruza. Dopo uno strappo iniziale una ripida discesa, facilitata da belle passerelle in legno, mi porterà a Munitibar. Nella prima parte attraverserò fitti boschi, che poi si alterneranno a campetti coltivati in un percorso dolce, tranquillo e molto silenzioso. L’arrivo a Gernika potrà dare qualche brivido a seguito della storia della Guerra civile spagnola.</strong>",
+            punti: [{x: 0, y: 80, label: "Markina"}, {x: 4, y: 120, label: ""}, {x: 5, y: 200, label: ""}, {x: 6, y: 150, label: ""}, {x: 7, y: 180, label: ""}, {x: 8, y: 300, label: "Zenarruza"}, {x: 9, y: 350, label: ""}, {x: 10.7, y: 220, label: ""}, {x: 11.5, y: 200, label: "Munitibar"}, {x: 12, y: 180, label: ""}, {x: 13.3, y: 280, label: ""}, {x: 14.3, y: 180, label: ""}, {x: 14.7, y: 190, label: ""}, {x: 17, y: 100, label: ""}, {x: 18, y: 180, label: ""}, {x: 19, y: 80, label: "Arratzu"}, {x: 19.5, y: 100, label: ""}, {x: 20, y: 50, label: ""}, {x: 21.5, y: 80, label: ""}, {x: 22, y: 50, label: ""}, {x: 23.5, y: 20, label: ""}, {x: 25.3, y: 0, label: "Gernika"} ]
+        },
+        {
+            data: "4 Aprile 2026",
+            titolo: "6° Tappa: Gernika ➔ Lezama",
+            km: 21.0,
+            stats: "📏 Lunghezza: 20,2 km <br>⛰️ Dislivello: salita 612m - discesa 562m <br>👣 Fondo: 49% sterrato 51% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Dovrò scavalcare il colle che sovrasta Gernika (un po' faticoso) e che divide la città dalle valli che portano a Bilbao. Raggiunta la sommità del colle la vista si allargherà. Di qui proseguirò in saliscendi attraversando splendidi boschi. Poi scenderò lentamente nella valle che mi porterà verso l’aeroporto di Bilbao. Inizierò a sentire la vicinanza della città.</strong>",
+            punti: [{x: 0, y: 0, label: "Gernika"}, {x: 2, y: 0, label: ""}, {x: 3.8, y: 180, label: ""}, {x: 4.2, y: 160, label: ""}, {x: 4.8, y: 250, label: ""}, {x: 6, y: 200, label: ""}, {x: 6.5, y: 220, label: ""}, {x: 7.2, y: 150, label: "Alto de Morga"}, {x: 8.2, y: 220, label: ""}, {x: 9, y: 180, label: ""}, {x: 10, y: 250, label: "Eskerika"}, {x: 11.1, y: 350, label: ""}, {x: 13.5, y: 160, label: ""}, {x: 14, y: 160, label: ""}, {x: 15.5, y: 90, label: "Goikolexea"}, {x: 17.5, y: 100, label: ""}, {x: 20.2, y: 60, label: "Lezama"}]
+        },
+        {
+            data: "5 Aprile 2026",
+            titolo: "7° Tappa: Lezama ➔ Bilbao",
+            km: 11,
+            stats: "📏 Lunghezza: 10,7 km <br>⛰️ Dislivello: salita 360m - discesa 396m <br>👣 Fondo: 17% sterrato 83% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Tra Lezama e Bilbao ci sarà solo il monte Avril, una collina che non arriverà ai 500 m: dovrò raggiungerne la cresta, percorrerla per un tratto e discendere in città. Il percorso sarà aperto e gradevole. A destra vedrò la valle di Lezama, con l’aeroporto, e a sinistra quella di Bilbao, con la zona industriale e l’estesa periferia. L’ingresso alla città sarà rapido e piacevole. L’ultimo tratto sarà addirittura un antico lastricato che mi condurrà in pieno centro. La tappa sarà breve: potrei unirla alla precedente o alla successiva risparmiando così una giornata di cammino, ma preferirò impiegare il tempo disponibile per un giro della città, che mi offrirà molti luoghi da visitare e da vivere.</strong>",
+            punti: [{x: 0, y: 60, label: "Lezama"}, {x: 2, y: 50, label: ""}, {x: 3, y: 60, label: "Zamudio"}, {x: 4, y: 100, label: ""}, {x: 6, y: 260, label: ""}, {x: 7.5, y: 350, label: ""}, {x: 9, y: 100, label: ""}, {x: 9.8, y: 80, label: ""}, {x: 10.7, y: 10, label: "Bilbao"}, ]
+        },
+        {
+            data: "6 Aprile 2026",
+            titolo: "8° Tappa: Bilbao ➔ Pobeña",
+            km: 30,
+            stats: "📏 Lunghezza: 29,4 km <br>⛰️ Dislivello: salita 492m - discesa 499m <br>👣 Fondo: 9% sterrato 91% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Questa tappa presenterà due percorsi alternativi alla partenza: in entrambi i casi attraverserò l’area metropolitana di Bilbao, molto urbanizzata, camminando quasi sempre su asfalto. Se sceglierò il percorso principale, uscirò dalla città verso ovest sulle colline sovrastanti, nella valle che da Bilbao attraversa Barakaldo, seguirò il río Nervión e arriverò fino al mare. Se invece sceglierò l’altro percorso, più breve di 3,5 km e consigliato per le bici, partirò sempre dal centro di Bilbao e affiancherò pressoché integralmente il río Nervión fino a Getxo. Il “puente Colgante” mi permetterà di arrivare a Portugalete, dove mi ricongiungerò con l’itinerario precedente e dove potrò fermarmi per abbreviare la tappa.</strong>",
+            punti: [{x: 0, y: 10, label: "Bilbao"}, {x: 0.3, y: 0, label: ""}, {x: 0.6, y: 40, label: ""}, {x: 3, y: 50, label: ""}, {x: 4.5, y: 160, label: ""}, {x: 6, y: 0, label: ""}, {x: 7, y: 190, label: ""}, {x: 8.5, y: 150, label: ""}, {x: 9, y: 165, label: ""}, {x: 11, y: 50, label: "Barakaldo"}, {x: 11.5, y: 0, label: ""}, {x: 17, y: 0, label: ""}, {x: 18.5, y: 30, label: "Bivio Portugalete"}, {x: 22.5, y: 110, label: "Gallarta"}, {x: 24, y: 110, label: ""}, {x: 25.3, y: 30, label: ""}, {x: 29.4, y: 0, label: "Pobeña"}]
+        },
+        {
+            data: "7 Aprile 2026",
+            titolo: "9° Tappa: Pobeña ➔ Islares",
+            km: 25.0,
+            stats: "📏 Lunghezza: 24,1 km <br>⛰️ Dislivello: salita 427m - discesa 402m <br>👣 Fondo: 36% sterrato 64% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Oggi sono in Cantabria e le linee della costa si addolciranno. Il percorso sarà tutto vista oceano, con panorami amplissimi. La prima parte sarà su un percorso pedonale fino a Ontón. Da qui avrò due possibilità: arrivare a Castro Urdiales attraverso un percorso che salirà bruscamente all’interno, oppure seguire la carretera vista mare. Potrò anche abbreviare la tappa fermandomi a Castro Urdiales o proseguire fino a Pontarrón.</strong>",
+            punti: [{x: 0, y: 0, label: "Pobeña"}, {x: 0.4, y: 0, label: ""}, {x: 0.5, y: 40, label: ""}, {x: 3, y: 60, label: ""}, {x: 5.5, y: 50, label: ""}, {x: 5.6, y: 0, label: ""}, {x: 6.3, y: 30, label: "Ontòn"}, {x: 8.5, y: 185, label: ""}, {x: 10.5, y: 40, label: "Moño"}, {x: 10.8, y: 0, label: ""}, {x: 11.2, y: 0, label: ""}, {x: 12, y: 80, label: ""}, {x: 12.7, y: 25, label: ""}, {x: 13, y: 40, label: ""}, {x: 13.2, y: 0, label: ""}, {x: 13.5, y: 0, label: "Castro Urdiales"}, {x: 16.5, y: 0, label: ""}, {x: 17.5, y: 65, label: ""}, {x: 18.5, y: 30, label: ""}, {x: 19, y: 40, label: "Allendelagua"}, {x: 21.3, y: 80, label: ""}, {x: 24.1, y: 30, label: "Islares"}, ]
+        },
+        {
+            data: "8 Aprile 2026",
+            titolo: "10° Tappa: Islares ➔ Santoña",
+            km: 24.0,
+            stats: "📏 Lunghezza: 22 km + 600 m in traghetto <br>⛰️ Dislivello: salita 323m - discesa 340m <br>👣 Fondo: 37% sterrato 63% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Nel primo tratto camminerò a poca distanza dal mare su un tracciato piacevole e non faticoso. Arrivato alla ría de Oriñón e alla sua bellissima spiaggia dovrò andare un po’ verso l’interno per valicarla al puente de la Magdalena. Di qui salirò sul colle imponente che mi sovrasta e scenderò nella bellissima e verde valle di Liendo. Inizierò poi uno spettacolare itinerario che mi permetterà di ammirare la costa rocciosa che porta a Laredo e mi regalerà panorami stupendi. Attraverserò Laredo (dove potrei fermarmi nel caso volessi accorciare la tappa), percorrerò con le sue spiagge e i turisti il promontorio sabbioso e passerò sull’altra sponda per dormire a Santoña, paese vocato alla lavorazione del pesce.</strong>",
+            punti: [
+                {x: 0, y: 35, label: "Islares"}, 
+                {x: 1, y: 15, label: ""}, 
+                {x: 3, y: 25, label: ""}, 
+                {x: 4.5, y: 35, label: "Pontarrón"}, 
+                {x: 6.5, y: 160, label: ""}, 
+                {x: 8.2, y: 180, label: ""}, 
+                {x: 9.8, y: 75, label: ""}, 
+                {x: 10.5, y: 70, label: "Liendo"}, 
+                {x: 12.2, y: 140, label: ""}, 
+                {x: 13.8, y: 260, label: ""}, 
+                {x: 14.2, y: 200, label: ""}, // Discesa rapida
+                {x: 16.2, y: 50, label: "Laredo"}, 
+                {x: 17.5, y: 20, label: ""}, 
+                {x: 19, y: 15, label: ""}, 
+                {x: 21, y: 15, label: ""}, 
+                {x: 22.5, y: 15, label: "Santoña"}
+            ]
+        },
+        {
+            data: "9 Aprile 2026",
+            titolo: "11° Tappa: Santoña ➔ Güemes",
+            km: 24.0,
+            stats: "📏 Lunghezza: 23,6 km <br>⛰️ Dislivello: salita 385m - discesa 304m <br>👣 Fondo: 25% sterrato 75% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Dall’alto della collinetta del Brusco godrò di una vista strepitosa sulla ría di Santoña e sulla lunga spiaggia di Noja. Camminerò su questa spiaggia per quasi 4 km. Poi andrò verso l’interno e, su e giù per morbide colline, in un tranquillo paesaggio agricolo, riceverò accoglienza nella comunità di don Ernesto a Güemes.</strong>",
+            punti: [
+                {x: 0, y: 0, label: "Santoña"}, 
+                {x: 1.5, y: 0, label: ""}, 
+                {x: 3.2, y: 85, label: ""}, // Piccolo strappo iniziale
+                {x: 4.5, y: 0, label: ""},
+                {x: 7, y: 0, label: ""}, 
+                {x: 7.5, y: 30, label: "Noja"}, 
+                {x: 9, y: 45, label: ""}, 
+                {x: 11, y: 35, label: ""}, 
+                {x: 12.5, y: 95, label: ""}, 
+                {x: 13.8, y: 65, label: "San Miguel"}, 
+                {x: 15.5, y: 120, label: ""}, 
+                {x: 16.2, y: 100, label: ""}, 
+                {x: 17.5, y: 145, label: "Bareyo"}, 
+                {x: 18.5, y: 160, label: ""}, 
+                {x: 20, y: 105, label: ""}, 
+                {x: 21.5, y: 100, label: ""}, 
+                {x: 23.6, y: 115, label: "Güemes"}
+            ]
+        },
+        {
+            data: "10 Aprile 2026",
+            titolo: "12° Tappa: Güemes ➔ Santa Cruz de Bezana",
+            km: 30.0,
+            stats: "📏 Lunghezza: 24 + 5 km in traghetto<br>⛰️ Dislivello: salita 216m - discesa 260 <br>👣 Fondo: 32% sterrato 68% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Ancora per campi e boschetti arriverò a Galizano: qui potrò evitare un noioso rettilineo a vantaggio di uno stupendo percorso lungo la costa. A Santander arriverò attraversando la ría su una barca. La città ha una forma allungata e per uscirne dovrò percorrere tutta la periferia, giungendo alla fine nella campagna. Incontrerò paesi e case sparse camminando quasi sempre su asfalto, senza arrivare al mare: in compenso non affronterò forti salite.</strong>",
+            punti: [
+                {x: 0, y: 115, label: "Güemes"}, 
+                {x: 1.5, y: 100, label: ""}, 
+                {x: 2.5, y: 125, label: ""}, 
+                {x: 3.5, y: 110, label: ""},
+                {x: 4.8, y: 15, label: "Galizano"}, 
+                {x: 6.5, y: 55, label: ""}, 
+                {x: 8.5, y: 45, label: ""}, 
+                {x: 9.8, y: 70, label: ""}, 
+                {x: 11.5, y: 30, label: ""}, 
+                {x: 13, y: 25, label: ""}, 
+                {x: 14.5, y: 5, label: "Somo"}, 
+                {x: 17, y: 5, label: ""}, // Inizio traghetto
+                {x: 19.5, y: 5, label: "Santander"}, // Fine traghetto
+                {x: 21.5, y: 75, label: ""}, 
+                {x: 23, y: 40, label: ""}, 
+                {x: 24, y: 50, label: "Peñacastillo"}, 
+                {x: 25.5, y: 90, label: ""}, 
+                {x: 27, y: 65, label: ""}, 
+                {x: 29, y: 85, label: "S.C. Bezana"}
+            ]
+        },
+        {
+            data: "11 Aprile 2026",
+            titolo: "13° Tappa: Santa Cruz de Bezana ➔ Santillana del Mar",
+            km: 29.0,
+            stats: "📏 Lunghezza: 26,5 km + 1,5 km in treno<br>⛰️ Dislivello: salita 362m - discesa 333m <br>👣 Fondo: 17% sterrato 83% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Oggi camminerò su e giù per dolci colline, con panorami che ogni tanto faranno scorgere il mare, e arriverò a Requejada, annunciata da due enormi condotte metalliche che accompagneranno il mio cammino per alcuni chilometri. Prenderò anche un treno che mi porterà da Boo de Pièlagos a Mogro, a causa di un tratto di cammino che non si può percorrere a piedi. Uscirò dalla brutta zona industriale e mi inoltrerò per belle e tranquille colline, entrando 'dalla porta di servizio' nello stupendo borgo di Santillana del Mar. Negli albergue potrà capitarmi di trovare indicazioni per altri percorsi e varianti che abbreviano, peraltro a volte solo di pochi metri, il cammino: non sono tutti ben segnalati e spesso si snodano lungo carretere trafficate. Seguirò quindi vivamente la descrizione per non rischiare di perdere la strada.</strong>",
+            punti: [
+                {x: 0, y: 85, label: "S.C. Bezana"}, 
+                {x: 1.5, y: 110, label: ""}, 
+                {x: 3.5, y: 100, label: ""}, 
+                {x: 5, y: 0, label: "Boo de Piélagos"}, 
+                {x: 5.8, y: 0, label: ""}, // Tratto in treno (inizio)
+                {x: 6.5, y: 0, label: "Mogro"},   // Tratto in treno (fine)
+                {x: 8.5, y: 95, label: ""}, 
+                {x: 11, y: 150, label: ""}, 
+                {x: 12.5, y: 100, label: ""}, 
+                {x: 14, y: 115, label: ""}, 
+                {x: 15.5, y: 0, label: ""}, 
+                {x: 18.2, y: 20, label: "Requejada"}, 
+                {x: 20, y: 35, label: ""}, 
+                {x: 21.5, y: 95, label: ""}, 
+                {x: 24, y: 130, label: ""}, 
+                {x: 26, y: 160, label: ""}, 
+                {x: 28, y: 110, label: "Santillana del Mar"}
+            ]
+        },
+        {
+            data: "12 Aprile 2026",
+            titolo: "14° Tappa: Santillana del Mar ➔ Comillas",
+            km: 23.0,
+            stats: "📏 Lunghezza: 22,3 km <br>⛰️ Dislivello: salita 469m - discesa 522m <br>👣 Fondo: 13% sterrato 87% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Mi aspetterà un percorso ondulato, ma la costa della Cantabria non ha grandi dislivelli e il cammino, alla fine, non sarà molto faticoso. Ancora per dolci colline, in ambienti costantemente rurali, arriverò fino all'elegante e aristocratica Comillas. Lì avrò anche l'opportunità di un bagno alla sua bella spiaggia.</strong>",
+            punti: [
+                {x: 0, y: 110, label: "Santillana"}, 
+                {x: 1.2, y: 160, label: ""}, 
+                {x: 2.5, y: 100, label: ""}, 
+                {x: 3.5, y: 130, label: ""}, 
+                {x: 4.5, y: 80, label: ""}, 
+                {x: 5.2, y: 115, label: ""}, 
+                {x: 6.2, y: 60, label: "Caborredondo"}, 
+                {x: 7.5, y: 135, label: ""}, 
+                {x: 8.8, y: 70, label: ""}, 
+                {x: 10, y: 55, label: ""}, 
+                {x: 11.5, y: 115, label: ""}, 
+                {x: 12.5, y: 110, label: "Cóbreces"}, 
+                {x: 13.5, y: 125, label: ""}, 
+                {x: 14.5, y: 120, label: ""}, 
+                {x: 15.5, y: 110, label: ""}, 
+                {x: 17, y: 70, label: ""}, 
+                {x: 18.2, y: 65, label: "La Iglesia"}, 
+                {x: 19.5, y: 105, label: ""}, 
+                {x: 20.8, y: 70, label: ""}, 
+                {x: 21.8, y: 40, label: ""}, 
+                {x: 22.3, y: 60, label: "Comillas"}
+            ]
+        },
+        {
+            data: "13 Aprile 2026",
+            titolo: "15° Tappa: Comillas ➔ Colombres",
+            km: 29.0,
+            stats: "📏 Lunghezza: 28,4 km <br>⛰️ Dislivello: salita 666m - discesa 578m <br>👣 Fondo: 13% sterrato 87% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Entrerò nel parco naturale di Oyambre e passerò in mezzo a un campo da golf: un'esperienza davvero insolita! Mi godrò l'arrivo a San Vicente, con un panorama amplissimo sulla ría, sul paese e sui Picos de Europa. Risalirò sui colli e li mi troverò nell'ultima parte della Cantabria. I paesi si diraderanno e saranno più piccoli. Percorrerò alcuni dolci colli e passerò due ponti, sulla ría de Tina Mayor e sul río Deva, entrando in Asturias.</strong>",
+            punti: [
+                {x: 0, y: 60, label: "Comillas"}, 
+                {x: 1.5, y: 40, label: ""}, 
+                {x: 3.5, y: 130, label: ""}, 
+                {x: 5, y: 35, label: "Campo da Golf"}, 
+                {x: 7.5, y: 110, label: ""}, 
+                {x: 9, y: 100, label: ""}, 
+                {x: 10.8, y: 15, label: "San Vicente"}, 
+                {x: 12.5, y: 80, label: ""}, 
+                {x: 14.2, y: 160, label: ""}, 
+                {x: 15.5, y: 100, label: ""}, 
+                {x: 17.2, y: 125, label: ""}, 
+                {x: 19, y: 140, label: "Serdio"}, 
+                {x: 21, y: 40, label: ""}, 
+                {x: 22.5, y: 65, label: ""}, 
+                {x: 24, y: 15, label: ""}, 
+                {x: 26.8, y: 15, label: "Unquera"}, 
+                {x: 27.5, y: 100, label: ""}, 
+                {x: 28.4, y: 125, label: "Colombres"}
+            ]
+        },
+        {
+            data: "14 Aprile 2026",
+            titolo: "16° Tappa: Colombres ➔ Llanes",
+            km: 25.0,
+            stats: "📏 Lunghezza: 24,3 km <br>⛰️ Dislivello: salita 215m - discesa 318m <br>👣 Fondo: 29% sterrato 71% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Lascerò Colombres per affrontare la prima tappa nelle Asturias: per una buona parte della tappa avrò la possibilità di camminare lungo un meraviglioso percorso sulla costa rocciosa. Passerò dalla zona degli spettacolari bufones. Percorrendo una collina che mi regalerà panorami amplissimi arriverò a Llanes, elegante e suggestiva, ma piena di turisti. Dormirò a Poo, pochissimi chilometri oltre.</strong>",
+            punti: [
+                {x: 0, y: 125, label: "Colombres"}, 
+                {x: 1.5, y: 70, label: ""}, 
+                {x: 3.2, y: 45, label: ""}, 
+                {x: 4.5, y: 15, label: ""}, 
+                {x: 6, y: 55, label: ""}, 
+                {x: 7.8, y: 35, label: "Buelna"}, 
+                {x: 9, y: 20, label: ""}, 
+                {x: 10, y: 50, label: ""}, 
+                {x: 11.5, y: 25, label: ""}, 
+                {x: 13, y: 40, label: ""}, 
+                {x: 14.5, y: 35, label: "Bufones"}, 
+                {x: 16.2, y: 15, label: ""}, 
+                {x: 17.5, y: 40, label: "Andrín"}, 
+                {x: 18.5, y: 105, label: ""}, 
+                {x: 20, y: 110, label: ""}, 
+                {x: 21.5, y: 135, label: ""}, 
+                {x: 23, y: 15, label: ""}, 
+                {x: 24.3, y: 15, label: "Llanes"}
+            ]
+        },
+        {
+            data: "15 Aprile 2026",
+            titolo: "17° Tappa: Llanes ➔ Ribadesella",
+            km: 32.0,
+            stats: "📏 Lunghezza: 31,9 km <br>⛰️ Dislivello: salita 390m - discesa 390m <br>👣 Fondo: 51% sterrato 49% asfalto",
+            desc: "Descrizione della tappa:<br><strong>In questa tappa incontrerò molte spiagge accessibili e ne approfitterò. Quando però il Cammino si dirigerà, anche per poco, verso l'interno, il paesaggio marittimo sparirà immediatamente e ritroverò gli umidi boschetti e i verdissimi pascoli che mi hanno accompagnato dal principio. I dislivelli Saranno modesti. Più avanti percorrerò la bassa fascia costiera senza però incontrare il mare. Sulla mia sinistra incomberanno i contrafforti dei Picos de Europa. Raggiungerò il mare a Ribadesella, che mi offrirà una bella opportunità per un tuffo nell'oceano.</strong>",
+            punti: [
+                {x: 0, y: 15, label: "Llanes"}, 
+                {x: 1.5, y: 35, label: ""}, 
+                {x: 3.2, y: 15, label: "Poo"}, 
+                {x: 5, y: 55, label: ""}, 
+                {x: 7.5, y: 30, label: ""}, 
+                {x: 9.5, y: 40, label: ""}, 
+                {x: 11.5, y: 90, label: ""}, 
+                {x: 13, y: 15, label: "Playa San Antolín"}, 
+                {x: 15.5, y: 65, label: ""}, 
+                {x: 17, y: 90, label: ""}, 
+                {x: 18.5, y: 45, label: "Nueva"}, 
+                {x: 20, y: 65, label: ""}, 
+                {x: 22, y: 105, label: ""}, 
+                {x: 24.5, y: 45, label: ""}, 
+                {x: 26.5, y: 55, label: ""}, 
+                {x: 29.5, y: 15, label: ""}, 
+                {x: 31.9, y: 15, label: "Ribadesella"}
+            ]
+        },
+        {
+            data: "16 Aprile 2026",
+            titolo: "18° Tappa: Ribadesella ➔ La Isla",
+            km: 17.0,
+            stats: "📏 Lunghezza: 16,2 km <br>⛰️ Dislivello: salita 389m - discesa 378m <br>👣 Fondo: 34% sterrato 66% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Sarà una tappa piuttosto breve e rilassante. Tra spiagge, coste rocciose e boschi, oggi per me trionferà la natura. Una volta scavalcata la collina di San Esteban de Leces, mi aspetterà un percorso estremamente panoramico che taglierà a mezza costa le colline, con una bella vista sulle lunghe spiagge sottostanti e su tratti di costa rocciosa. Se il mare sarà agitato, giungeranno fino a me nuvole di 'aerosol' prodotto dal rompersi delle onde. Infine, arriverò alla bella e accessibile spiaggia della Isla.</strong>",
+            punti: [
+                {x: 0, y: 15, label: "Ribadesella"}, 
+                {x: 1.5, y: 25, label: ""}, 
+                {x: 2.5, y: 45, label: ""}, 
+                {x: 3.5, y: 105, label: "S. Esteban"}, 
+                {x: 4.5, y: 65, label: ""}, 
+                {x: 5.5, y: 75, label: ""}, 
+                {x: 6.5, y: 20, label: ""}, 
+                {x: 8.2, y: 95, label: ""}, 
+                {x: 9, y: 55, label: "Berbes"}, 
+                {x: 10.5, y: 80, label: ""}, 
+                {x: 11.5, y: 35, label: ""}, 
+                {x: 12.5, y: 55, label: ""}, 
+                {x: 14, y: 30, label: ""}, 
+                {x: 15.2, y: 40, label: ""}, 
+                {x: 16.2, y: 25, label: "La Isla"}
+            ]
+        },
+        {
+            data: "17 Aprile 2026",
+            titolo: "19° Tappa: La Isla ➔ Villaviciosa",
+            km: 23.0,
+            stats: "📏 Lunghezza: 22 km <br>⛰️ Dislivello: salita 461m - discesa 468m <br>👣 Fondo: 22% sterrato 77% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Sarà una tappa molto solitaria. Abbandonerò temporaneamente il mare, che ritroverò solo a Gijón. Mi addentrerò in un paesaggio quasi montano, con pascoli, fitti boschi, umide vallette, paesi piccoli e quasi spopolati: sarà un bel contrasto con il finale perché a Villaviciosa ritroverò l'ambiente della città.</strong>",
+            punti: [
+                {x: 0, y: 25, label: "La Isla"}, 
+                {x: 1.5, y: 55, label: ""}, 
+                {x: 3.2, y: 75, label: ""}, 
+                {x: 4.2, y: 35, label: "Colunga"}, 
+                {x: 6, y: 30, label: ""}, 
+                {x: 7.5, y: 65, label: ""}, 
+                {x: 8.8, y: 125, label: ""}, 
+                {x: 10, y: 110, label: ""}, 
+                {x: 11.5, y: 195, label: ""}, // Punto massimo della tappa
+                {x: 13, y: 155, label: "Priesca"}, 
+                {x: 14.5, y: 110, label: ""}, 
+                {x: 16, y: 30, label: "Sebrayo"}, 
+                {x: 17.5, y: 70, label: ""}, 
+                {x: 19, y: 45, label: ""}, 
+                {x: 20.5, y: 70, label: ""}, 
+                {x: 22, y: 25, label: "Villaviciosa"}
+            ]
+        },
+        {
+            data: "18 Aprile 2026",
+            titolo: "20° Tappa: Villaviciosa ➔ Gijòn",
+            km: 30.0,
+            stats: "📏 Lunghezza: 29,9 km <br>⛰️ Dislivello: salita 738m - discesa 343m <br>👣 Fondo: 31% sterrato 69% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Con la tappa odierna mi immergerò nelle umide valli asturiane. Sarà un percorso duro: mi aspetteranno due salite impegnative per scavalcare le montagnole che mi divideranno da Gijón e dalla sua spiaggia cittadina. Gijón è una città molto estesa: per raggiungere il centro mi ci vorrà tempo. Partirò portando con me qualche provvista perché lungo il Cammino il primo posto di ristoro per me sarà a Peón.</strong>",
+            punti: [
+                {x: 0, y: 25, label: "Villaviciosa"}, 
+                {x: 2.5, y: 15, label: ""}, 
+                {x: 5, y: 35, label: ""}, 
+                {x: 7.5, y: 55, label: ""}, 
+                {x: 8.5, y: 125, label: ""}, 
+                {x: 9.5, y: 100, label: ""}, 
+                {x: 10.5, y: 240, label: ""}, 
+                {x: 11.8, y: 440, label: "Alto de la Cruz"}, 
+                {x: 13.5, y: 300, label: ""}, 
+                {x: 15.8, y: 75, label: "Peón"}, 
+                {x: 17.5, y: 275, label: ""}, 
+                {x: 19, y: 175, label: ""}, 
+                {x: 20.5, y: 190, label: ""}, 
+                {x: 22, y: 65, label: "Camping"}, 
+                {x: 24, y: 55, label: ""}, 
+                {x: 26, y: 15, label: ""}, 
+                {x: 28, y: 20, label: ""}, 
+                {x: 29.9, y: 15, label: "Gijón"}
+            ]
+        },
+        {
+            data: "19 Aprile 2026",
+            titolo: "21° Tappa: Gijòn ➔ Avilés",
+            km: 26.0,
+            stats: "📏 Lunghezza: 25,1 km <br>⛰️ Dislivello: salita 318m - discesa 314m <br>👣 Fondo: 23% sterrato 77% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Gijón è divisa da Avilés dal Monte Areo, in realtà solo una fila di colline, e dalla valle del Carreño. Lascerò la confusione della città e ritornerò nella calma e nel silenzio, con qualche dolce salita. Nel finale ripiomberò nel pieno di una zona industriale con rumori, fumi, inquinamento e traffico. Pazienza: Avilés sarà l’ultima grande città prima di Santiago.</strong>",
+            punti: [
+                {x: 0, y: 15, label: "Gijón"}, 
+                {x: 1.5, y: 20, label: ""}, 
+                {x: 3.5, y: 15, label: ""}, 
+                {x: 5, y: 40, label: ""}, 
+                {x: 6.5, y: 15, label: ""}, 
+                {x: 8.5, y: 145, label: ""}, 
+                {x: 10.5, y: 165, label: ""}, 
+                {x: 11.2, y: 145, label: ""}, 
+                {x: 11.8, y: 75, label: "S. Eulalia"}, 
+                {x: 13, y: 105, label: ""}, 
+                {x: 14.5, y: 115, label: ""}, 
+                {x: 16, y: 50, label: ""}, 
+                {x: 16.8, y: 45, label: "Tabaza"}, 
+                {x: 18.5, y: 35, label: ""}, 
+                {x: 20.5, y: 25, label: ""}, 
+                {x: 22, y: 10, label: "Pedrero"}, 
+                {x: 24, y: 10, label: ""}, 
+                {x: 25.1, y: 10, label: "Avilés"}
+            ]
+        },
+        {
+            data: "20 Aprile 2026",
+            titolo: "22° Tappa: Avilés ➔ El Pito",
+            km: 28.0,
+            stats: "📏 Lunghezza: 27,4 km <br>⛰️ Dislivello: salita 685m - discesa 559m <br>👣 Fondo: 35% sterrato 65% asfalto",
+            desc: "Descrizione della tappa:<br><strong>La costa si farà più 'rugosa': oggi troverò molti saliscendi. Le salite non saranno lunghe ma alla fine si faranno sentire. Dopo due giorni di grandi città ora ritroverò pace, silenzio e tanto verde. Non sarò lontano dal mare ma non arriverò mai a costeggiarlo. Mi rifornirò alla partenza di quanto mi necessita perché dopo Salinas il primo ristoro sarà a Soto del Barco!</strong>",
+            punti: [
+                {x: 0, y: 15, label: "Avilés"}, 
+                {x: 1.5, y: 110, label: ""}, 
+                {x: 3, y: 140, label: ""}, 
+                {x: 4.8, y: 55, label: "Piedras Blancas"}, 
+                {x: 6.5, y: 120, label: ""}, 
+                {x: 8.5, y: 125, label: ""}, 
+                {x: 10.2, y: 165, label: "Santiago del Monte"}, 
+                {x: 11.5, y: 125, label: ""}, 
+                {x: 13, y: 220, label: ""}, // Punto più alto
+                {x: 14.5, y: 180, label: ""}, 
+                {x: 16.5, y: 15, label: ""}, 
+                {x: 17.5, y: 40, label: "Soto del Barco"}, 
+                {x: 18.5, y: 95, label: ""}, 
+                {x: 20.2, y: 25, label: ""}, // Discesa al fiume Nalón
+                {x: 21.5, y: 115, label: "Muros de Nalón"}, 
+                {x: 23, y: 140, label: ""}, 
+                {x: 24.2, y: 65, label: ""}, 
+                {x: 26, y: 120, label: ""}, 
+                {x: 27.4, y: 95, label: "El Pito"}
+            ]
+        },
+        {
+            data: "21 Aprile 2026",
+            titolo: "23° Tappa: El Pito ➔ Ballota",
+            km: 24.0,
+            stats: "📏 Lunghezza: 23,5 km <br>⛰️ Dislivello: salita 712m - discesa 701m <br>👣 Fondo: 40% sterrato 60% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Nella prima parte zigzagherò con l’autostrada dall’alto della collina. Scenderò poi a pochi passi dalla bella playa Concha de Artedo. Passata Soto de Luiña, luogo intermedio per i rifornimenti, inizierò un percorso tutto su e giù nelle umide depressioni che solcano questo tratto di fascia costiera stretto e molto corrugato. Alla mia sinistra incomberanno le montagne ma sulla destra sentirò e vedrò dall’alto l’oceano. La tappa non sarà lunga ma sarà impegnativa per i notevoli dislivelli.</strong>",
+            punti: [
+                {x: 0, y: 135, label: "El Pito"}, 
+                {x: 1.2, y: 75, label: ""}, 
+                {x: 3.5, y: 195, label: ""}, 
+                {x: 5.5, y: 80, label: "La Magdalena"}, 
+                {x: 6.5, y: 15, label: ""}, // Punto più basso prima della risalita
+                {x: 8.5, y: 130, label: ""}, 
+                {x: 9.5, y: 95, label: ""}, 
+                {x: 10.5, y: 160, label: ""}, 
+                {x: 11.5, y: 35, label: "Soto de Luiña"}, 
+                {x: 12.8, y: 145, label: ""}, 
+                {x: 15.5, y: 155, label: ""}, 
+                {x: 17, y: 140, label: "Novellana"}, 
+                {x: 18.2, y: 80, label: ""}, 
+                {x: 19.5, y: 135, label: ""}, 
+                {x: 21.2, y: 150, label: "Santa Marina"}, 
+                {x: 22.5, y: 95, label: ""}, 
+                {x: 23.5, y: 145, label: "Ballota"}
+            ]
+        },
+        {
+            data: "22 Aprile 2026",
+            titolo: "24° Tappa: Ballota ➔ Luarca",
+            km: 24.0,
+            stats: "📏 Lunghezza: 23,3 km <br>⛰️ Dislivello: salita 359m - discesa 392m <br>👣 Fondo: 40% sterrato 60% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Il tratto di costa rugosa della tappa odierna continuerà fino a Cadavedo; dovrò così affrontare l’attraversamento di altre due depressioni boscose. Poi il percorso si addolcirà un poco. Arriverò allo splendido borgo marinaro di Luarca.</strong>",
+            punti: [
+                {x: 0, y: 145, label: "Ballota"}, 
+                {x: 1, y: 65, label: ""}, 
+                {x: 2.5, y: 130, label: ""}, 
+                {x: 3.5, y: 110, label: ""}, 
+                {x: 4.8, y: 135, label: ""}, 
+                {x: 6.5, y: 105, label: "Cadavedo"}, 
+                {x: 8.5, y: 95, label: ""}, 
+                {x: 10.5, y: 100, label: ""}, 
+                {x: 12.2, y: 120, label: ""}, 
+                {x: 13.8, y: 70, label: "Ch. S. Miguel"}, 
+                {x: 15, y: 40, label: ""}, 
+                {x: 16.5, y: 135, label: ""}, 
+                {x: 18.2, y: 100, label: "Barcia"}, 
+                {x: 19.5, y: 80, label: ""}, 
+                {x: 21, y: 45, label: ""}, 
+                {x: 22.5, y: 20, label: ""}, 
+                {x: 23.3, y: 15, label: "Luarca"}
+            ]
+        },
+        {
+            data: "23 Aprile 2026",
+            titolo: "25° Tappa: Luarca ➔ La Caridad",
+            km: 31.0,
+            stats: "📏 Lunghezza: 30,5 km <br>⛰️ Dislivello: salita 569m - discesa 514m <br>👣 Fondo: 29% sterrato 71% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Sarà una tappa fra le più lunghe ma non sarà faticosa: non affronterò forti dislivelli. Camminerò su stradine prevalentemente di asfalto zigzagando attorno alla carretera N-634 e senza toccare il mare. Sarà un tratto simile al precedente e come quello anche un po’ noioso.</strong>",
+            punti: [
+                {x: 0, y: 15, label: "Luarca"}, 
+                {x: 1.5, y: 100, label: ""}, 
+                {x: 3.5, y: 135, label: ""}, 
+                {x: 5.5, y: 110, label: "El Rellón"}, 
+                {x: 7.2, y: 145, label: ""}, 
+                {x: 8.5, y: 190, label: ""}, // Punto più alto della prima parte
+                {x: 10, y: 110, label: ""}, 
+                {x: 12.2, y: 115, label: "Villapedre"}, 
+                {x: 14, y: 85, label: ""}, 
+                {x: 16, y: 110, label: ""}, 
+                {x: 18.2, y: 45, label: ""}, 
+                {x: 19.5, y: 15, label: "Navia"}, 
+                {x: 21.5, y: 65, label: ""}, 
+                {x: 23, y: 105, label: ""}, 
+                {x: 24.5, y: 80, label: ""}, 
+                {x: 26.5, y: 110, label: ""}, 
+                {x: 28.5, y: 75, label: ""}, 
+                {x: 30.5, y: 95, label: "La Caridad"}
+            ]
+        },
+        {
+            data: "24 Aprile 2026",
+            titolo: "26° Tappa: La Caridad ➔ Ribadeo",
+            km: 24.0,
+            stats: "📏 Lunghezza: 23,2 km <br>⛰️ Dislivello: salita 258m - discesa 281m <br>👣 Fondo: 16% sterrato 84% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Percorrerò gli ultimi chilometri delle Asturias, e saranno tra i più belli. Ci saranno diversi itinerari, tutti pressoché in piano. Sceglierò di seguire quello più prossimo all’oceano per godermi gli ultimi panorami marini: incontrerò bellissime spiagge. Domani girerò decisamente verso l’interno.</strong>",
+            punti: [
+                {x: 0, y: 95, label: "La Caridad"}, 
+                {x: 1.5, y: 80, label: ""}, 
+                {x: 3, y: 110, label: ""}, 
+                {x: 4.8, y: 15, label: ""}, // Discesa al fiume
+                {x: 5.5, y: 75, label: "Porcía"}, 
+                {x: 8.5, y: 65, label: ""}, 
+                {x: 10.5, y: 40, label: ""}, 
+                {x: 11.2, y: 15, label: "Tapia de Casariego"}, 
+                {x: 13, y: 55, label: ""}, 
+                {x: 14.5, y: 15, label: ""}, 
+                {x: 15.8, y: 35, label: ""}, 
+                {x: 17.5, y: 15, label: "P. Peñarronda"}, 
+                {x: 19, y: 45, label: ""}, 
+                {x: 20.5, y: 45, label: ""}, 
+                {x: 21.5, y: 15, label: ""}, // Ponte dei Santi (altezza strada)
+                {x: 22.2, y: 45, label: ""}, 
+                {x: 23.2, y: 55, label: "Ribadeo"}
+            ]
+        },
+        {
+            data: "25 Aprile 2026",
+            titolo: "27° Tappa: Ribadeo ➔ Lourenzà",
+            km: 28.0,
+            stats: "📏 Lunghezza: 27,5 km <br>⛰️ Dislivello: salita 752m - discesa 739m <br>👣 Fondo: 34% sterrato 66% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Lascierò la costa e mi addentrerò nella Galicia rurale. Sino a qui avrò camminato con il riferimento dell’oceano sulla mia destra. Ora avvertirò nettamente il cambio di paesaggio. Ritroverò salite alle quali negli ultimi giorni mi ero disabituato e che oggi mi metteranno a dura prova. Incontrerò minuscoli borghi che sembreranno quasi spopolati. Terrò conto che qui in Galicia le conchas che indicano il Cammino sono orientate in modo contrario a quanto trovato in Asturias: le varie nervature della conchiglia (i Cammini) confluiranno verso Santiago. I mojones saranno comunque stati riposizionati e non mi lasceranno mai: ogni incrocio sarà segnalato!</strong>",
+            punti: [
+                {x: 0, y: 55, label: "Ribadeo"}, 
+                {x: 1.5, y: 65, label: ""}, 
+                {x: 3.5, y: 135, label: ""}, 
+                {x: 5.5, y: 100, label: "Vilela"}, 
+                {x: 7.5, y: 145, label: ""}, 
+                {x: 9, y: 120, label: ""}, 
+                {x: 11, y: 135, label: "Cubelas"}, 
+                {x: 12.5, y: 220, label: ""}, 
+                {x: 14, y: 260, label: ""}, 
+                {x: 15.2, y: 350, label: ""}, 
+                {x: 17, y: 320, label: ""}, 
+                {x: 18.2, y: 385, label: "Vilamartín Grande"}, 
+                {x: 19.5, y: 330, label: ""}, 
+                {x: 22.5, y: 130, label: ""}, 
+                {x: 24.5, y: 210, label: ""}, 
+                {x: 26, y: 100, label: ""}, 
+                {x: 27.5, y: 85, label: "Lourenzá"}
+            ]
+        },
+        {
+            data: "26 Aprile 2026",
+            titolo: "28° Tappa: Lourenzà ➔ Gontàn/Abadìn",
+            km: 25.0,
+            stats: "📏 Lunghezza: 24,8 km <br>⛰️ Dislivello: salita 863m - discesa 434m <br>👣 Fondo: 37% sterrato 63% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Nella prima parte supererò dolci colline boscose. Poi scenderò nella valle che porta a Mondoñedo zigzagando in mezzo a case di campagna. Risalirò decisamente una valle boschiva che con fatica sboccherà sulla meseta di Lugo, l’altopiano che caratterizzerà il mio Cammino dei giorni seguenti.</strong>",
+            punti: [
+                {x: 0, y: 50, label: "Lourenzá"}, 
+                {x: 1.5, y: 220, label: ""}, 
+                {x: 3, y: 160, label: ""}, 
+                {x: 3.9, y: 210, label: ""},
+                {x: 4.8, y: 110, label: ""}, 
+                {x: 6.5, y: 85, label: ""}, 
+                {x: 8.2, y: 140, label: "Mondoñedo"}, 
+                {x: 10, y: 280, label: ""}, 
+                {x: 12, y: 250, label: ""}, 
+                {x: 13.5, y: 290, label: ""}, 
+                {x: 15.5, y: 400, label: ""}, 
+                {x: 17, y: 420, label: "Lousada"}, 
+                {x: 19, y: 560, label: ""}, 
+                {x: 20, y: 585, label: ""}, // Punto più alto
+                {x: 21.5, y: 535, label: ""}, 
+                {x: 23, y: 510, label: ""}, 
+                {x: 24.8, y: 480, label: "Gontán"}
+            ]
+        },
+        {
+            data: "27 Aprile 2026",
+            titolo: "29° Tappa: Gontàn/Abadìn ➔ Vilalba",
+            km: 22.0,
+            stats: "📏 Lunghezza: 21,4 km <br>⛰️ Dislivello: salita 315m - discesa 318m <br>👣 Fondo: 50% sterrato 50% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Entrerò nella Terra Chá ('piana'), un'ampia regione caratterizzata da un altopiano di pascoli intervallati da collinette e solcato da ruscelli. Vedrò tantissime vacche, case sparse, poche persone, per lo più anziane. Tunnel di alberi copriranno spesso il mio Cammino. Sarà la Galicia caratteristica, sempre uguale ma a ogni svolta diversa. Nella prima parte troverò qualche saliscendi faticoso, se pur breve; nella seconda il mio Cammino scorrerà più leggero.</strong>",
+            punti: [
+                {x: 0, y: 480, label: "Gontán"}, 
+                {x: 1, y: 495, label: ""}, 
+                {x: 2.5, y: 470, label: ""}, 
+                {x: 4, y: 520, label: ""}, 
+                {x: 5.5, y: 535, label: ""}, // Piccolo strappo iniziale
+                {x: 7.2, y: 435, label: "Castromaior"}, 
+                {x: 8.5, y: 430, label: ""}, 
+                {x: 10, y: 415, label: ""}, 
+                {x: 11.5, y: 430, label: ""}, 
+                {x: 13, y: 420, label: ""}, 
+                {x: 15.2, y: 435, label: "Goiriz"}, 
+                {x: 17, y: 425, label: ""}, 
+                {x: 18.5, y: 435, label: ""}, 
+                {x: 20, y: 415, label: ""}, 
+                {x: 21.4, y: 425, label: "Vilalba"}
+            ]
+        },
+        {
+            data: "28 Aprile 2026",
+            titolo: "30° Tappa: Vilalba ➔ Xeixòn",
+            km: 32.0,
+            stats: "📏 Lunghezza: 31,8 km <br>⛰️ Dislivello: salita 397m - discesa 422m <br>👣 Fondo: 42% sterrato 58% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Sarà la tappa più lunga del mio Cammino ma non la più faticosa: presenterà infatti dislivelli minimi. Mi sarà comunque possibile accorciarla, anche se le ospitalità intermedie saranno poche: dovrò però calcolare bene i chilometri della tappa successiva. Continuerò ad attraversare la Galicia rurale: i boschetti, le case di pietra, i ponticelli, i crocifissi in pietra agli incroci. Vedrò scorci indimenticabili, specie nella prima parte, ma anche solitudine e molto spesso abbandono. La modernità sarà portata dalla nuova autostrada e dalla carretera nacional N-634 che incrocerò molte volte. I boschi caratterizzeranno questo mio tratto. Incontrerò pochissimi paesi e senza servizi. Arriverò, camminando su terreno pressoché pianeggiante, al termine della Terra Chá.</strong>",
+            punti: [
+                {x: 0, y: 480, label: "Vilalba"},
+                {x: 1, y: 420, label: ""},
+                {x: 1.5, y: 460, label: ""},
+                {x: 2, y: 420, label: ""}, 
+                {x: 3.2, y: 420, label: ""}, 
+                {x: 5, y: 495, label: "Alba"}, 
+                {x: 7.5, y: 450, label: ""}, 
+                {x: 10, y: 420, label: ""}, 
+                {x: 12.5, y: 435, label: ""}, 
+                {x: 15, y: 425, label: ""}, 
+                {x: 17.5, y: 435, label: ""}, 
+                {x: 18.5, y: 425, label: "Baamonde"}, 
+                {x: 21, y: 420, label: ""}, 
+                {x: 23, y: 485, label: "Parga"}, 
+                {x: 24.5, y: 460, label: ""}, 
+                {x: 26.5, y: 430, label: ""}, 
+                {x: 28.5, y: 445, label: ""}, 
+                {x: 30, y: 420, label: ""}, 
+                {x: 31.8, y: 440, label: "Xeixón"}
+            ]
+        },
+        {
+            data: "29 Aprile 2026",
+            titolo: "31° Tappa: Xeixòn ➔ Sobrado dos Monxes",
+            km: 28.0,
+            stats: "📏 Lunghezza: 27,3 km <br>⛰️ Dislivello: salita 481m - discesa 420m <br>👣 Fondo: 31% sterrato 69% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Oggi sono a una svolta: uscirò dalla provincia di Lugo superando una fila di alte colline e raggiungendo la massima altitudine del Cammino (m 715). Entrerò nella provincia di A Coruña: Santiago ormai sarà molto vicina. Sarà forse il tratto di maggior solitudine. Troverò anche salite, non dure ma che si faranno sentire. Però l'arrivo sarà tanto bello da farmi dimenticare anche le eventuali sofferenze.</strong>",
+            punti: [
+                {x: 0, y: 440, label: "Xeixón"}, 
+                {x: 1.5, y: 450, label: "Miraz"}, 
+                {x: 3.5, y: 510, label: ""}, 
+                {x: 5.5, y: 560, label: ""}, 
+                {x: 7.5, y: 610, label: ""}, 
+                {x: 9.5, y: 650, label: ""}, 
+                {x: 11, y: 600, label: ""}, 
+                {x: 12.5, y: 620, label: "A Roxica"}, 
+                {x: 14.5, y: 700, label: ""}, 
+                {x: 16.2, y: 590, label: ""}, 
+                {x: 18.5, y: 670, label: "Confine di provincia"}, 
+                {x: 20.2, y: 600, label: ""}, 
+                {x: 21.5, y: 630, label: "Esgueva"}, 
+                {x: 23.5, y: 510, label: ""}, 
+                {x: 25.5, y: 480, label: ""}, 
+                {x: 27.3, y: 480, label: "Sobrado dos Monxes"}
+            ]
+        },
+        {
+            data: "30 Aprile 2026",
+            titolo: "32° Tappa: Sobrado dos Monxes ➔ A Brea",
+            km: 32.0,
+            stats: "📏 Lunghezza: 31,4 km <br>⛰️ Dislivello: salita 371m - discesa 515m <br>👣 Fondo: 16% sterrato 84% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Arrivato a Boimorto la tappa presenterà diverse soluzioni. Qualunque sia la mia scelta, sarà l’ultimo tratto del Cammino del Nord e nel finale arriverò sul Cammino Francés. Qui tutto cambierà: non troverò più i silenzi e la solitudine ai quali mi ero abituato. Nelle prime ore percorrerò stradine di campagna talvolta tortuose. Poi, dopo Boimorto, le strade si distenderanno in lunghi monotoni rettilinei.</strong>",
+            punti: [
+                {x: 0, y: 510, label: "Sobrado dos Monxes"}, 
+                {x: 1.5, y: 495, label: ""}, 
+                {x: 2.8, y: 555, label: "Perexil"}, 
+                {x: 4.5, y: 535, label: ""}, 
+                {x: 6.2, y: 440, label: ""}, 
+                {x: 8.5, y: 460, label: ""}, 
+                {x: 11, y: 500, label: "Boimorto"}, 
+                {x: 12.5, y: 470, label: "Bivio a Brea / Arzùa"}, 
+                {x: 14.5, y: 485, label: ""}, 
+                {x: 17, y: 520, label: ""}, 
+                {x: 19.2, y: 440, label: ""}, 
+                {x: 22, y: 370, label: ""}, 
+                {x: 24.5, y: 385, label: ""}, 
+                {x: 27.5, y: 270, label: ""}, // Discesa decisa
+                {x: 29.5, y: 420, label: ""}, 
+                {x: 31.4, y: 365, label: "A Brea"}
+            ]
+        },
+        {
+            data: "1 Maggio 2026",
+            titolo: "33° Tappa: A Brea ➔ Santiago de Compostela",
+            km: 26.0,
+            stats: "📏 Lunghezza: 25,1 km <br>⛰️ Dislivello: salita 473m - discesa 585m <br>👣 Fondo: 42% sterrato 58% asfalto",
+            desc: "Descrizione della tappa:<br><strong>Sarà l’ultima tappa e seguirò il Camino Francés: lungo la strada incontrerò moltissimi pellegrini, sin qui non molto numerosi. Qui tutto parlerà di Cammino, tutto sarà in funzione del Cammino. La Galicia continuerà a presentarmi i suoi boschi di eucalipto, i suoi pascoli, le piccolissime aldee. Eppure avvertirò che qualcosa starà cambiando, che mi starò avvicinando alla città. Sfiorerò l’aeroporto e poi, al termine di una salita, il Monte do Gozo. Ecco Santiago. Percorrerò la lunga periferia sino al centro storico. Ogni tanto appariranno le torri della cattedrale che in qualche modo mi guideranno, e alla fine la troverò di fronte, giungendo in praza do Obradoiro. L’emozione e la gioia si mescoleranno al ricordo delle fatiche, dei problemi e delle difficoltà affrontate e superate. Avrò compiuto il mio personale cammino. Sarà il momento della festa, dell’abbraccio con i compagni di strada, con i pellegrini che si credevano persi e che si ritroveranno. Sarà il momento dell’orgoglio di avercela fatta, della gioia di aver superato una prova che in certi momenti si era ritenuta difficile, quasi impossibile. Sarà il momento delle emozioni: poi verrà quello delle riflessioni, dei bilanci, del ritorno alla vita “normale”.</strong>",
+            punti: [
+                {x: 0, y: 365, label: "A Brea"}, 
+                {x: 1.5, y: 410, label: ""}, 
+                {x: 2.8, y: 340, label: ""}, 
+                {x: 4.5, y: 255, label: "Pedrouzo"}, 
+                {x: 6.2, y: 290, label: ""}, 
+                {x: 7.5, y: 275, label: ""}, 
+                {x: 8.8, y: 235, label: ""}, 
+                {x: 10.5, y: 355, label: ""}, 
+                {x: 12.2, y: 330, label: "San Paio"}, 
+                {x: 14, y: 270, label: ""}, 
+                {x: 15.8, y: 320, label: ""}, 
+                {x: 17.5, y: 360, label: ""}, 
+                {x: 19, y: 345, label: ""}, 
+                {x: 20.5, y: 375, label: "Monte do Gozo"}, 
+                {x: 21.5, y: 320, label: ""}, 
+                {x: 23, y: 265, label: ""}, 
+                {x: 24, y: 275, label: ""}, 
+                {x: 25.1, y: 255, label: "Santiago de Compostela"}
+            ]
+        },
+        {
+            data: "3 Maggio 2026",
+            titolo: "1° Tappa: Santiago de Compostela ➔ Negreira",
+            km: 22.0,
+            stats: "📏 Lunghezza: 21,7 km <br>⛰️ Dislivello: salita 636m - discesa 712m <br>",
+            desc: "Descrizione della tappa:<br><strong>L'uscita da Santiago è piacevole, voltare le spalle alla cattedrale mette malinconia ma avrò la possibilità di un ultimo saluto dal mirador di Sarela de Abaixo. Poi, boschi di querce ed eucalipti e una campagna ondulata, per una tappa breve e relativamente semplice, con un solo strappo significativo, la salita all'Alto de Mar de Ovellas. Superato il pittoresco villaggio di Ponte Maceira, arrierò rapidamente a Negreira, cittadina dall'aspetto moderno e dotata di tutti i servizi. Lungo il cammino, al contrario, i servizi e le fontane non abbondano, e il primo bar lo incontrerò dopo sette chilometri.</strong>",
+            punti: [
+                {x: 0, y: 250, label: "Santiago de Compostela"},
+                {x: 1.5, y: 180, label: ""},
+                {x: 2, y: 240, label: ""},
+                {x: 3, y: 200, label: ""},
+                {x: 4, y: 170, label: ""},
+                {x: 5, y: 170, label: ""},
+                {x: 6, y: 200, label: "Carballal"},
+                {x: 7.5, y: 170, label: ""},
+                {x: 8.5, y: 190, label: ""},
+                {x: 9.5, y: 100, label: "Ventosa"},
+                {x: 11.5, y: 30, label: ""},
+                {x: 13.5, y: 300, label: ""},
+                {x: 15, y: 200, label: "Trasmonte"},
+                {x: 17, y: 175, label: "Ponte Maceira"},
+                {x: 19, y: 175, label: ""},
+                {x: 20, y: 200, label: ""},
+                {x: 21.7, y: 180, label: "Negreira"}
+            ]
+        },
+        {
+            data: "4 Maggio 2026",
+            titolo: "2° Tappa: Negreira ➔ Olveiroa",
+            km: 34.0,
+            stats: "📏 Lunghezza: 33,5 km <br>⛰️ Dislivello: salita 872m - discesa 767m <br>",
+            desc: "Descrizione della tappa:<br><strong>La principale attrazione di questa lunga tappa è la bellezza dell'ambiente circostante: i meravigliosi percorsi nei boschi di eucalipti e querce, gli hòrreos che punteggiano la campagna e i piccoli centri urbani, la distesa dei campi coltivati e dei pascoli, il cui ordine geometrico muta impercettibilmente con la storia del territorio. Da Negreira i saliscendi si alternano a lunghi rettilinei e la salita al monte Aro esige il suo tributo di fatica. Qua potrò decidere di spezzare la tappa a Santa Mariña o a Lago oppure, ancora prima, ad A Pena o Vilaserìo. Dovrò fare attenzione all'acqua: le fonti sono poche e molte delle località attraversate sono prive di servizi. Olveiroa è un paesino rurale che tuttavia offre una quantità adeguata di strutture per l'accoglienza al pellegrino.</strong>",
+            punti: [
+                {x: 0, y: 170, label: "Negreira"}, 
+                {x: 2.5, y: 280, label: ""}, 
+                {x: 4.5, y: 320, label: ""}, 
+                {x: 7.2, y: 340, label: "A Pena"}, 
+                {x: 9, y: 380, label: ""}, 
+                {x: 10.5, y: 410, label: ""}, 
+                {x: 12.5, y: 345, label: "Vilaserío"}, 
+                {x: 14.2, y: 355, label: ""}, 
+                {x: 16.5, y: 335, label: ""}, 
+                {x: 18.5, y: 350, label: ""}, 
+                {x: 20.8, y: 335, label: "Santa Mariña"}, 
+                {x: 22.5, y: 395, label: ""}, 
+                {x: 24.2, y: 460, label: ""}, 
+                {x: 25.5, y: 510, label: "Mirador de Monte Aro"}, // Punto più alto
+                {x: 27.5, y: 350, label: ""}, 
+                {x: 29.5, y: 280, label: ""}, 
+                {x: 31.5, y: 285, label: ""}, 
+                {x: 33.5, y: 295, label: "Olveiroa"}
+            ]
+        },
+        {
+            data: "5 Maggio 2026",
+            titolo: "3° Tappa: Olveiroa ➔ Finisterre",
+            km: 35.0,
+            stats: "📏 Lunghezza: 34,8 km <br>⛰️ Dislivello: salita 799m - discesa 966m <br>",
+            desc: "Descrizione della tappa:<br><strong>Da Olveiroa mi dirigo verso Finisterre percorrendo quasi quindici chilometri solitari fra boschi e pascoli quindi, dopo una rapida discesa verso il mare, attraverserò due belle località della costa, Cee e Corcubiòn, poi Sardiñeiro e infine raggiungerò Finisterre, preceduta dalla bellissima spiaggia di Langosteira.</strong>",
+            punti: [
+                {x: 0, y: 295, label: "Olveiroa"}, 
+                {x: 1.5, y: 310, label: ""}, 
+                {x: 3.5, y: 360, label: ""}, 
+                {x: 5.2, y: 410, label: "Hospital"}, 
+                {x: 7.5, y: 440, label: ""}, 
+                {x: 9.5, y: 415, label: ""}, 
+                {x: 11.5, y: 320, label: ""}, 
+                {x: 13, y: 380, label: ""}, 
+                {x: 15, y: 310, label: ""}, 
+                {x: 17, y: 150, label: ""}, // Inizio discesa ripida
+                {x: 18.5, y: 15, label: "Cee"},   // Livello mare
+                {x: 20.2, y: 115, label: ""}, 
+                {x: 22.5, y: 180, label: ""}, 
+                {x: 24.5, y: 60, label: ""}, 
+                {x: 26.5, y: 135, label: ""}, 
+                {x: 28.5, y: 40, label: ""}, 
+                {x: 31, y: 15, label: "Finisterre"}, 
+                {x: 32.5, y: 85, label: ""}, 
+                {x: 34.8, y: 145, label: "Faro"}
+            ]
+        }
+    ];
+
+    // 1. Database coordinate per il meteo reale
+        const coordinateTappe = {
+            "30 Marzo 2026": { citta: "Irun", lat: 43.33, lon: -1.78 },
+            "31 Marzo 2026": { citta: "San Sebastian", lat: 43.31, lon: -1.98 },
+            "1 Aprile 2026": { citta: "Zarautz", lat: 43.28, lon: -2.17 },
+            "2 Aprile 2026": { citta: "Deba", lat: 43.29, lon: -2.35 },
+            "3 Aprile 2026": { citta: "Markina", lat: 43.26, lon: -2.49 },
+            "4 Aprile 2026": { citta: "Gernika", lat: 43.31, lon: -2.67 },
+            "5 Aprile 2026": { citta: "Lezama", lat: 43.27, lon: -2.83 },
+            "6 Aprile 2026": { citta: "Bilbao", lat: 43.26, lon: -2.93 },
+            "7 Aprile 2026": { citta: "Pobeña", lat: 43.34, lon: -3.12 },
+            "8 Aprile 2026": { citta: "Islares", lat: 43.40, lon: -3.31 },
+            "9 Aprile 2026": { citta: "Santoña", lat: 43.44, lon: -3.45 },
+            "10 Aprile 2026": { citta: "Güemes", lat: 43.46, lon: -3.63 },
+            "11 Aprile 2026": { citta: "Bezana", lat: 43.44, lon: -3.90 },
+            "12 Aprile 2026": { citta: "Santillana", lat: 43.38, lon: -4.10 },
+            "13 Aprile 2026": { citta: "Comillas", lat: 43.38, lon: -4.29 },
+            "14 Aprile 2026": { citta: "Colombres", lat: 43.37, lon: -4.54 },
+            "15 Aprile 2026": { citta: "Poo", lat: 43.42, lon: -4.78 },
+            "16 Aprile 2026": { citta: "Ribadesella", lat: 43.46, lon: -5.06 },
+            "17 Aprile 2026": { citta: "La Isla", lat: 43.48, lon: -5.22 },
+            "18 Aprile 2026": { citta: "Villaviciosa", lat: 43.48, lon: -5.43 },
+            "19 Aprile 2026": { citta: "Gijon", lat: 43.53, lon: -5.66 },
+            "20 Aprile 2026": { citta: "Aviles", lat: 43.55, lon: -5.92 },
+            "21 Aprile 2026": { citta: "El Pito", lat: 43.55, lon: -6.14 },
+            "22 Aprile 2026": { citta: "Ballota", lat: 43.55, lon: -6.32 },
+            "23 Aprile 2026": { citta: "Luarca", lat: 43.54, lon: -6.53 },
+            "24 Aprile 2026": { citta: "La Caridad", lat: 43.55, lon: -6.83 },
+            "25 Aprile 2026": { citta: "Ribadeo", lat: 43.53, lon: -7.04 },
+            "26 Aprile 2026": { citta: "Lourenzá", lat: 43.47, lon: -7.29 },
+            "27 Aprile 2026": { citta: "Gontán", lat: 43.38, lon: -7.47 },
+            "28 Aprile 2026": { citta: "Vilalba", lat: 43.29, lon: -7.68 },
+            "29 Aprile 2026": { citta: "Baamonde", lat: 43.18, lon: -7.74 },
+            "30 Aprile 2026": { citta: "Sobrado", lat: 43.04, lon: -8.02 },
+            "1 Maggio 2026": { citta: "A Brea", lat: 42.93, lon: -8.32 },
+            "3 Maggio 2026": { citta: "Santiago", lat: 42.88, lon: -8.54 },
+            "4 Maggio 2026": { citta: "Negreira", lat: 42.91, lon: -8.73 },
+            "5 Maggio 2026": { citta: "Olveiroa", lat: 42.97, lon: -9.04 }
+        };
+
+        // 2. Funzione per scaricare il meteo reale
+        async function prendiMeteoReale(lat, lon) {
+            try {
+                // Ho aggiunto wind_speed_10m alla richiesta current
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
+                const response = await fetch(url);
+                const data = await response.json();
+                return {
+                    attuale: data.current.temperature_2m,
+                    codice: data.current.weather_code,
+                    vento: data.current.wind_speed_10m, // <--- Aggiunto questo
+                    max: data.daily.temperature_2m_max[0],
+                    min: data.daily.temperature_2m_min[0],
+                    pioggia: data.daily.precipitation_sum[0]
+                };
+            } catch (error) {
+                console.error("Errore meteo:", error);
+                return null;
+            }
+        }
+
+        function getIconaMeteo(code) {
+            if (code === 0) return "☀️";
+            if (code <= 3) return "⛅";
+            if (code >= 51 && code <= 67) return "🌧️";
+            if (code >= 71 && code <= 77) return "❄️";
+            if (code >= 95) return "⛈️";
+            return "☁️";
+        }
+
+        // 3. Funzione principale per generare il sito
+        async function generaDiario() {
+            const container = document.getElementById('lista-tappe');
+            const oggi = new Date('2026-04-15'); // TEST: Metti la data di oggi o una di test
+            
+            const mappaMesi = {"Marzo": "03", "Aprile": "04", "Maggio": "05"};
+            let tCompletateS = 0;
+            let tCompletateF = 0;
+
+            for (let i = 0; i < camminoData.length; i++) {
+                const t = camminoData[i];
+
+                // Divisore Inizio
+                if (i === 0) {
+                    // 1. Crea e aggiungi la targhetta
+                    const divInizio = document.createElement('div');
+                    divInizio.className = 'divisore-cammino';
+                    divInizio.innerHTML = `<div class="targhetta">🟢 Inizio del Cammino del Nord</div>`;
+                    container.appendChild(divInizio);
+
+                    // 2. Crea e aggiungi la PRIMA FOTO dopo la targhetta
+                    const divFotoNord = document.createElement('div');
+                    divFotoNord.className = 'foto-mappa';
+                    divFotoNord.innerHTML = `
+                        <img src="mappa_camminodelnord.jpg" alt="Mappa Cammino del Nord">
+                        <p>Mappa Cammino del Nord</p>
+                    `;
+                    container.appendChild(divFotoNord);
+                }
+
+                const parti = t.data.split(' ');
+                const cardData = new Date(`${parti[2]}-${mappaMesi[parti[1]]}-${parti[0].padStart(2, '0')}T00:00:00`);
+                const oggiSoloData = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate());
+                const isOggi = oggiSoloData.getTime() === cardData.getTime();
+                
+                if (cardData <= oggiSoloData) {
+                    if (i <= 32) tCompletateS++;
+                    else tCompletateF++;
+                }
+
+                const card = document.createElement('div');
+                card.className = `tappa-card ${isOggi ? 'oggi' : ''}`;
+                
+                // Gestione Messaggio Oggi + Meteo
+                let htmlOggi = "";
+                if (isOggi) {
+                    document.getElementById('btnToday').style.display = 'block';
+                    const idMeteo = `meteo-content-${i}`;
+                    htmlOggi = `<div class="messaggio-oggi-strong">📍 OGGI SONO QUI <div id="${idMeteo}">Caricamento meteo...</div></div>`;
+                    
+                    // Chiamata asincrona al meteo
+                    if (coordinateTappe[t.data]) {
+                        const c = coordinateTappe[t.data];
+                        prendiMeteoReale(c.lat, c.lon).then(m => {
+                            const el = document.getElementById(idMeteo);
+                            if (m && el) {
+                                el.innerHTML = `
+                                    <div class="meteo-oggi-box">
+                                        <div class="meteo-item"><span class="meteo-value" style="font-size:1.8em">${getIconaMeteo(m.codice)}</span></div>
+                                        <div class="meteo-item"><span class="meteo-label">Ora</span><span class="meteo-value">${Math.round(m.attuale)}°C</span></div>
+                                        <div class="meteo-item" style="color: #ff4d4d;"><span class="meteo-label">Max</span><span class="meteo-value">${Math.round(m.max)}°C</span></div>
+                                        <div class="meteo-item" style="color: #4da6ff;"><span class="meteo-label">Min</span><span class="meteo-value">${Math.round(m.min)}°C</span></div>
+                                        <div class="meteo-item"><span class="meteo-label">Vento</span><span class="meteo-value">${Math.round(m.vento)}km/h</span></div>
+                                    </div>`;
+                            } else if (el) { el.innerHTML = ""; }
+                        });
+                    }
+                }
+
+                card.innerHTML = `
+                    <span class="tappa-data">${t.data}</span>
+                    <h2 class="tappa-titolo">${t.titolo}</h2>
+                    ${htmlOggi}
+                    <div class="tappa-stats">${t.stats}</div>
+                    <div class="chart-container"><canvas id="chart-${i}"></canvas></div>
+                    <p class="desc-text">${t.desc}</p>
+                `;
+                container.appendChild(card);
+
+                // Grafici
+                if (t.punti && t.km > 0) {
+                    const altitudini = t.punti.map(p => p.y);
+                    const maxAlt = Math.max(...altitudini);
+                    new Chart(document.getElementById(`chart-${i}`).getContext('2d'), {
+                        type: 'line', plugins: [ChartDataLabels],
+                        data: { datasets: [{ data: t.punti, borderColor: '#4a6741', backgroundColor: 'rgba(74, 103, 65, 0.1)', fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: 'red', datalabels: { align: 'top', anchor: 'end', color: '#3e2723', font: { weight: 'bold' }, formatter: v => v.label } }] },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { type: 'linear', min: 0, max: t.km, offset: true, ticks: { font: { size: 9 }, stepSize: 1, callback: v => Number.isInteger(v) ? v : null }, grid: { color: c => c.tick.value % 5 === 0 ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)' } }, y: { beginAtZero: true, max: Math.ceil(maxAlt * 1.2), ticks: { font: { size: 10 }, afterBuildTicks: a => a.ticks = [{value: 0}, {value: maxAlt}] } } }, layout: { padding: { left: 40, right: 40, top: 30, bottom: 10 } } }
+                    });
+                }
+
+                // Divisori Transizione
+                if (i === 32) {
+                    const divFineNord = document.createElement('div');
+                    divFineNord.className = 'divisore-cammino';
+                    divFineNord.innerHTML = `<div class="targhetta fine">🏁 Fine del Cammino del Nord</div>`;
+                    container.appendChild(divFineNord);
+
+                    const sosta = document.createElement('div');
+                    sosta.className = 'sosta-santiago-box';
+                    sosta.innerHTML = `<h3>2 Maggio 2026: Una giornata a Santiago</h3><p>Oggi i miei scarponi restano a riposo. Mi godo la maestosità di Santiago prima dell'ultimo tratto verso l'Oceano. 🐚✨</p>`;
+                    container.appendChild(sosta);
+
+                    // Targhetta Inizio Finisterre
+                    const divInizioFin = document.createElement('div');
+                    divInizioFin.className = 'divisore-cammino';
+                    divInizioFin.innerHTML = `<div class="targhetta">🌊 Inizio Cammino Santiago ➔ Finisterre</div>`;
+                    container.appendChild(divInizioFin);
+
+                    // Crea e aggiungi la SECONDA FOTO dopo la targhetta
+                    const divFotoFin = document.createElement('div');
+                    divFotoFin.className = 'foto-mappa';
+                    divFotoFin.innerHTML = `
+                        <img src="mappa_finisterre.jpg" alt="Mappa Finisterre">
+                        <p>Mappa del cammino da Santiago a Finisterre</p>
+                    `;
+                    container.appendChild(divFotoFin);
+                        }
+
+                    // Fine Assoluta
+                    if (i === camminoData.length - 1) {
+                        const divFineTot = document.createElement('div');
+                        divFineTot.className = 'divisore-cammino';
+                        divFineTot.innerHTML = `<div class="targhetta fine">🐚 Fine del Viaggio - Finisterre</div>`;
+                        container.appendChild(divFineTot);
+                    }
+            }
+
+            // Calcolo barre progresso
+            const sPerc = Math.min(Math.round((tCompletateS / 33) * 100), 100);
+            const fPerc = Math.min(Math.round((tCompletateF / 3) * 100), 100);
+            document.getElementById('bar1').style.width = sPerc + "%";
+            document.getElementById('perc1').innerText = sPerc + "%";
+            document.getElementById('bar2').style.width = fPerc + "%";
+            document.getElementById('perc2').innerText = fPerc + "%";
+        }
+
+        function scrollToToday() {
+            const oggiElement = document.querySelector('.tappa-card.oggi');
+            if (oggiElement) {
+                oggiElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        // Mostra il pulsante solo se esiste la tappa di oggi
+        window.addEventListener('scroll', () => {
+            const btn = document.getElementById('btnToday');
+            if (document.querySelector('.tappa-card.oggi')) {
+                btn.style.display = 'block';
+            }
+        });
+
+window.onload = generaDiario;
+</script>
+
+<footer>
+    <div class="credits-box">
+        <p>
+            Questo diario è stato realizzato con l'ausilio delle preziose guide di <strong>Terre di Mezzo Editore</strong>, 
+            compagne indispensabili di ogni pellegrino:
+        </p>
+        <p>
+            📖 <span class="guide-title">"A Santiago lungo il Cammino del Nord"</span><br>
+            di Luciano Callegari, 7ª Edizione aggiornata (2024).
+        </p>
+        <p>
+            📖 <span class="guide-title">"Il Cammino Inglese e il Cammino di Finisterre"</span><br>
+            di Fabrizio Ardito, 2ª Edizione aggiornata (2023).
+        </p>
+        <p style="margin-top: 20px; font-size: 0.8em; opacity: 0.7;">
+            © 2026 - Il Diario di Dave | Buon Cammino! 👣
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>
